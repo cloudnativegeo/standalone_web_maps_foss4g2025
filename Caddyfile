@@ -1,0 +1,47 @@
+# Caddyfile for serving the standalone web map locally
+# This configuration serves the map and supports Maputnik editor
+#
+# NOTE: If style.json uses absolute HTTPS URLs (e.g., https://cloudnativegeo.github.io/...),
+# those resources will load from GitHub Pages, not locally. For full local operation,
+# style.json should use relative paths like "/lib/fonts/{fontstack}/{range}.pbf" and
+# "/lib/sprites/sprite" which will be served by this local server.
+{
+	# Disable automatic HTTPS redirects (avoids needing port 80)
+	auto_https off
+}
+
+# Serve HTTP on port 1234
+# Use http://127.0.0.1:1234 to avoid browser HSTS auto-upgrade
+http://127.0.0.1:1234 {
+	# Set CORS headers for Maputnik to access style.json and other resources
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type, Authorization"
+	}
+
+	# Handle OPTIONS requests for CORS preflight
+	@options method OPTIONS
+	handle @options {
+		respond 204
+	}
+
+	# Reverse proxy for Maputnik editor (must come before file_server)
+	# Maputnik runs on port 8888, we proxy it to /maputnik
+	handle_path /maputnik/* {
+		reverse_proxy localhost:8888 {
+			header_up Host localhost:8888
+		}
+	}
+
+	# Handle root path for Maputnik (redirect /maputnik to /maputnik/)
+	handle /maputnik {
+		redir /maputnik/ permanent
+	}
+
+	# Serve all static files from the repository root
+	# This serves index.html, style.json, sources/, lib/, etc.
+	# Fonts in lib/fonts/ will be served automatically via file_server
+	root * .
+	file_server
+}
